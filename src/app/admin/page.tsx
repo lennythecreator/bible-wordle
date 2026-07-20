@@ -38,6 +38,7 @@ export default function AdminPage() {
   );
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showAllUsers, setShowAllUsers] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [pendingOverwrite, setPendingOverwrite] = useState<{
     wordId: string;
@@ -381,12 +382,17 @@ export default function AdminPage() {
                     User Management
                   </h3>
                 </div>
-                <button className="text-label text-primary flex items-center gap-1 btn-ghost">
-                  VIEW ALL
-                  <span className="material-symbols-outlined">
-                    chevron_right
-                  </span>
-                </button>
+                {users.length > 5 && (
+                  <button
+                    onClick={() => setShowAllUsers(!showAllUsers)}
+                    className="text-label text-primary flex items-center gap-1 btn-ghost"
+                  >
+                    {showAllUsers ? "SHOW LESS" : "VIEW ALL"}
+                    <span className="material-symbols-outlined">
+                      {showAllUsers ? "expand_less" : "chevron_right"}
+                    </span>
+                  </button>
+                )}
               </div>
               <div className="divider-list">
                 {users.length === 0 ? (
@@ -396,7 +402,7 @@ export default function AdminPage() {
                     </p>
                   </div>
                 ) : (
-                  users.slice(0, 5).map((u, idx) => {
+                  (showAllUsers ? users : users.slice(0, 5)).map((u, idx) => {
                     const initials = u.name
                       .split(" ")
                       .map((n) => n[0])
@@ -424,8 +430,19 @@ export default function AdminPage() {
                               {u.username || u.name}
                             </p>
                             <p className="text-label text-on-surface-variant">
-                              Streak: {u.currentStreak} days
+                              {u.email}
                             </p>
+                            <div className="flex gap-3 mt-1">
+                              <span className="text-label text-on-surface-variant">
+                                Games: {u.gamesPlayed}
+                              </span>
+                              <span className="text-label text-on-surface-variant">
+                                Streak: {u.currentStreak}
+                              </span>
+                              <span className="text-label text-on-surface-variant">
+                                Best: {u.longestStreak}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <button className="p-2 text-error hover:bg-error-container rounded-xl transition-colors">
