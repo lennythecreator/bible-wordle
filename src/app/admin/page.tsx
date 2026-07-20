@@ -39,6 +39,10 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
+  const [activeChallenge, setActiveChallenge] = useState<{
+    word: string;
+    date: string;
+  } | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [pendingOverwrite, setPendingOverwrite] = useState<{
     wordId: string;
@@ -58,7 +62,7 @@ export default function AdminPage() {
     : words.slice(0, 8);
 
   const selectedWordData = words.find((w) => w._id === selectedWord);
-  const previewWord = selectedWordData?.word || "BEGIN";
+  const previewWord = selectedWordData?.word || activeChallenge?.word || "BEGIN";
   const previewLetters = previewWord.split("");
 
   useEffect(() => {
@@ -70,9 +74,10 @@ export default function AdminPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wordsRes, usersRes] = await Promise.all([
+        const [wordsRes, usersRes, challengesRes] = await Promise.all([
           fetch("/api/admin/words"),
           fetch("/api/admin/users"),
+          fetch("/api/admin/challenge"),
         ]);
 
         if (wordsRes.ok) {
@@ -83,6 +88,20 @@ export default function AdminPage() {
         if (usersRes.ok) {
           const usersData = await usersRes.json();
           setUsers(usersData.users || []);
+        }
+
+        if (challengesRes.ok) {
+          const challengesData = await challengesRes.json();
+          const today = new Date().toISOString().split("T")[0];
+          const todayChallenge = (challengesData.challenges || []).find(
+            (c: { date: string }) => c.date.split("T")[0] === today
+          );
+          if (todayChallenge?.word?.word) {
+            setActiveChallenge({
+              word: todayChallenge.word.word,
+              date: todayChallenge.date,
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -473,12 +492,18 @@ export default function AdminPage() {
               <div className="card-inner">
                 <div className="text-center mb-8">
                   <h4 className="text-2xl text-primary font-display mb-1">
-                    {previewWord.length > 0
+                    {selectedWordData
                       ? `${previewWord.charAt(0)}${previewWord.slice(1).toLowerCase()} 1:1`
-                      : "Select a book"}
+                      : activeChallenge
+                        ? `${activeChallenge.word.charAt(0)}${activeChallenge.word.slice(1).toLowerCase()} 1:1`
+                        : "No Active Challenge"}
                   </h4>
                   <p className="text-label text-on-surface-variant text-xs">
-                    DAILY WORD
+                    {selectedWordData
+                      ? "PREVIEW"
+                      : activeChallenge
+                        ? "TODAY'S WORD"
+                        : "SELECT A WORD TO SET"}
                   </p>
                 </div>
 
