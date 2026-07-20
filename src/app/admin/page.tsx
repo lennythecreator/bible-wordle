@@ -95,16 +95,18 @@ export default function AdminPage() {
     }
   }, [user]);
 
-  const handleCreateChallenge = async (overwrite = false) => {
+  const handleCreateChallenge = async (overwrite = false, publishToday = false) => {
     if (!selectedWord) {
       setMessage("Please select a Bible word");
       return;
     }
     setMessage("");
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateStr = tomorrow.toISOString().split("T")[0];
+    const targetDate = new Date();
+    if (!publishToday) {
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+    const dateStr = targetDate.toISOString().split("T")[0];
 
     const payload = {
       wordId: selectedWord,
@@ -149,7 +151,7 @@ export default function AdminPage() {
 
   const confirmOverwrite = () => {
     if (pendingOverwrite) {
-      handleCreateChallenge(true);
+      handleCreateChallenge(true, true);
     }
   };
 
@@ -167,7 +169,7 @@ export default function AdminPage() {
 
   const handlePublishLive = async () => {
     setPublishing(true);
-    await handleCreateChallenge();
+    await handleCreateChallenge(false, true);
     setPublishing(false);
   };
 
