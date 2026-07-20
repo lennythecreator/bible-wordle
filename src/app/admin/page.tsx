@@ -173,6 +173,12 @@ export default function AdminPage() {
     setPublishing(false);
   };
 
+  const handlePublishTomorrow = async () => {
+    setPublishing(true);
+    await handleCreateChallenge(false, false);
+    setPublishing(false);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="page-shell">
@@ -502,7 +508,14 @@ export default function AdminPage() {
                 disabled={publishing || !selectedWord}
                 className="btn-chunky btn-primary"
               >
-                {publishing ? "PUBLISHING..." : "PUBLISH LIVE"}
+                {publishing ? "PUBLISHING..." : "SET CHALLENGE FOR TODAY"}
+              </button>
+              <button
+                onClick={handlePublishTomorrow}
+                disabled={publishing || !selectedWord}
+                className="btn-chunky btn-secondary"
+              >
+                {publishing ? "PUBLISHING..." : "SET CHALLENGE FOR TOMORROW"}
               </button>
 
               {/* System Health */}
