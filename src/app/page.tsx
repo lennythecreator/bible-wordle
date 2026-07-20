@@ -1,65 +1,119 @@
-import Image from "next/image";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
+  const router = useRouter();
+  const { user } = useAuth();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="bg-background text-on-background min-h-screen min-h-[100dvh] flex flex-col items-center justify-center font-body relative overflow-hidden">
+      {/* Bottom Background Decoration */}
+      <div className="fixed -bottom-24 -left-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed -top-24 -right-24 w-64 h-64 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Main Welcome Canvas */}
+      <main className="w-full max-w-md px-6 pb-[env(safe-area-inset-bottom)] flex flex-col items-center text-center relative z-10">
+        {/* Mascot Section */}
+        <div className="mb-10 flex flex-col items-center">
+          <div className="relative w-48 h-48 mb-6 animate-float">
+            {/* Mascot Container with soft shadow */}
+            <div className="absolute inset-0 bg-primary/5 rounded-full blur-2xl" />
+            <div className="relative z-10 w-full h-full flex items-center justify-center text-8xl">
+              📜
+            </div>
+          </div>
+          <h1 className="font-display text-display text-primary tracking-tight mb-2">
+            Shalom!
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="font-display text-headline-lg-mobile text-on-surface-variant leading-tight">
+            Ready to Play?
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Description */}
+        <div className="mb-10 max-w-xs">
+          <p className="font-body text-body-lg text-outline">
+            Step into a world where biblical wisdom meets playful challenges. Discover your daily word and climb the leaderboard!
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="w-full space-y-6">
+          {/* Primary Action */}
+          <button
+            onClick={() => router.push(user ? "/dashboard" : "/signup")}
+            className="tactile-button-primary w-full py-5 rounded-2xl font-label text-label-bold text-on-secondary-container flex items-center justify-center gap-2 group"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            GET STARTED
+            <span className="material-symbols-outlined font-bold transition-transform group-hover:translate-x-1">
+              arrow_forward
+            </span>
+          </button>
+
+          {/* Secondary Action */}
+          <button
+            onClick={() => router.push(user ? "/dashboard" : "/login")}
+            className="tactile-button-secondary w-full py-5 rounded-2xl font-label text-label-bold text-on-surface-variant"
           >
-            Documentation
-          </a>
+            I ALREADY HAVE AN ACCOUNT
+          </button>
+        </div>
+
+        {/* Footnote */}
+        <div className="mt-10 flex flex-col items-center gap-4">
+          <div className="flex gap-2">
+            <div className="w-2 h-2 rounded-full bg-primary-container" />
+            <div className="w-2 h-2 rounded-full bg-secondary-container/30" />
+            <div className="w-2 h-2 rounded-full bg-tertiary-container/30" />
+          </div>
+          <p className="font-label text-[12px] text-outline-variant uppercase tracking-widest">
+            A DIVINE PLAY ORIGINAL
+          </p>
         </div>
       </main>
+
+      <style jsx>{`
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+          100% { transform: translateY(0px); }
+        }
+        .animate-float {
+          animation: float 4s ease-in-out infinite;
+        }
+        .tactile-button-primary {
+          position: relative;
+          background-color: #febf26;
+          border: none;
+          border-bottom: 6px solid #6d4f00;
+          transition: all 0.1s ease;
+        }
+        .tactile-button-primary:hover {
+          transform: translateY(-2px);
+          border-bottom-width: 8px;
+        }
+        .tactile-button-primary:active {
+          transform: translateY(4px);
+          border-bottom-width: 0px;
+        }
+        .tactile-button-secondary {
+          position: relative;
+          background-color: white;
+          border: 2px solid #dbdad5;
+          border-bottom: 6px solid #dbdad5;
+          transition: all 0.1s ease;
+        }
+        .tactile-button-secondary:hover {
+          transform: translateY(-2px);
+          border-bottom-width: 8px;
+        }
+        .tactile-button-secondary:active {
+          transform: translateY(4px);
+          border-bottom-width: 0px;
+        }
+      `}</style>
     </div>
   );
 }
