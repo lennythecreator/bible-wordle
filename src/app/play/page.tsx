@@ -15,7 +15,9 @@ interface Challenge {
   hint1?: string;
   hint2?: string;
   hint3?: string;
+  reflectionQuestion?: string;
   dayNumber: number;
+  attempts?: { guess: string; result: GuessResult[]; attemptNumber: number }[];
 }
 
 interface Guess {
@@ -57,28 +59,6 @@ export default function PlayPage() {
     }
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    const fetchChallenge = async () => {
-      try {
-        const response = await fetch("/api/challenge/today");
-        if (response.ok) {
-          const data = await response.json();
-          setChallenge(data);
-        } else {
-          setError("No challenge available today");
-        }
-      } catch {
-        setError("Failed to load challenge");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) {
-      fetchChallenge();
-    }
-  }, [user]);
-
   const updateLetterStatuses = useCallback((guesses: Guess[]) => {
     const statuses: Record<string, GuessResult> = {};
 
@@ -99,6 +79,46 @@ export default function PlayPage() {
 
     setLetterStatuses(statuses);
   }, []);
+
+  useEffect(() => {
+    const fetchChallenge = async () => {
+      try {
+        const response = await fetch("/api/challenge/today");
+        if (response.ok) {
+          const data = await response.json();
+          setChallenge(data);
+
+          const savedAttempts: Guess[] = (data.attempts || []).map(
+            (a: { guess: string; result: GuessResult[] }) => ({
+              guess: a.guess,
+              result: a.result,
+            })
+          );
+
+          if (savedAttempts.length > 0) {
+            setGuesses(savedAttempts);
+            updateLetterStatuses(savedAttempts);
+
+            const solved = savedAttempts.some((g) =>
+              g.result.every((r) => r === "correct")
+            );
+            setWon(solved);
+            setGameOver(solved || savedAttempts.length >= 6);
+          }
+        } else {
+          setError("No challenge available today");
+        }
+      } catch {
+        setError("Failed to load challenge");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchChallenge();
+    }
+  }, [user, updateLetterStatuses]);
 
   const showError = useCallback((message: string) => {
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
@@ -235,6 +255,18 @@ export default function PlayPage() {
           >
             <p className="font-body text-on-error-container text-sm md:text-base">
               {error}
+            </p>
+          </div>
+        )}
+
+        {/* Reflection Question */}
+        {challenge.reflectionQuestion && (
+          <div className="w-full max-w-md mb-3 md:mb-4 bg-surface-container-low border-2 border-primary/30 rounded-xl p-3 md:p-4 text-center">
+            <p className="font-label text-primary text-xs uppercase tracking-wider mb-1">
+              Reflect
+            </p>
+            <p className="font-body text-on-surface text-sm md:text-base italic">
+              &ldquo;{challenge.reflectionQuestion}&rdquo;
             </p>
           </div>
         )}

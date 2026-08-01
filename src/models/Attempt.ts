@@ -45,5 +45,7 @@ const AttemptSchema = new Schema<IAttempt>(
   }
 );
 
+AttemptSchema.index({ user: 1, challenge: 1, attemptNumber: 1 }, { unique: true });
+
 export default mongoose.models.Attempt ||
   mongoose.model<IAttempt>("Attempt", AttemptSchema);

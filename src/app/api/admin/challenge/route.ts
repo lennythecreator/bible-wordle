@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { wordId, date, hintsEnabled, hint1, hint2, hint3, overwrite } =
+    const { wordId, date, hintsEnabled, hint1, hint2, hint3, reflectionQuestion, overwrite } =
       await req.json();
 
     if (!wordId || !date) {
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
       existingChallenge.hint2 =
         hint2 || (word.author ? `Written by ${word.author}` : undefined);
       existingChallenge.hint3 = hint3 || word.description;
+      existingChallenge.reflectionQuestion = reflectionQuestion;
       existingChallenge.createdBy = user.id;
       await existingChallenge.save();
 
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
       hint1: hint1 || `Category: ${word.category}`,
       hint2: hint2 || (word.author ? `Written by ${word.author}` : undefined),
       hint3: hint3 || word.description,
+      reflectionQuestion,
       createdBy: user.id,
     });
 
@@ -109,6 +111,53 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     console.error("Create challenge error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { date, reflectionQuestion } = await req.json();
+
+    if (!date) {
+      return NextResponse.json(
+        { error: "Date is required" },
+        { status: 400 }
+      );
+    }
+
+    await connectToDatabase();
+
+    const challengeDate = new Date(date);
+    challengeDate.setHours(0, 0, 0, 0);
+
+    const challenge = await DailyChallenge.findOne({ date: challengeDate });
+
+    if (!challenge) {
+      return NextResponse.json(
+        { error: "No challenge found for this date" },
+        { status: 404 }
+      );
+    }
+
+    challenge.reflectionQuestion = reflectionQuestion;
+    await challenge.save();
+
+    return NextResponse.json({
+      message: "Challenge updated successfully",
+      challenge,
+    });
+  } catch (error) {
+    console.error("Update challenge error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -51,6 +51,7 @@ export default function AdminPage() {
     hint1: string;
     hint2?: string;
     hint3?: string;
+    reflectionQuestion: string;
   } | null>(null);
 
   const filteredWords = words.filter((w) =>
@@ -115,7 +116,11 @@ export default function AdminPage() {
     }
   }, [user]);
 
-  const handleCreateChallenge = async (overwrite = false, publishToday = false) => {
+  const handleCreateChallenge = async (
+    overwrite = false,
+    publishToday = false,
+    dateStr?: string
+  ) => {
     if (!selectedWord) {
       setMessage("Please select a Bible word");
       return;
@@ -126,17 +131,18 @@ export default function AdminPage() {
     if (!publishToday) {
       targetDate.setDate(targetDate.getDate() + 1);
     }
-    const dateStr = targetDate.toISOString().split("T")[0];
+    const resolvedDate = dateStr ?? targetDate.toISOString().split("T")[0];
 
     const payload = {
       wordId: selectedWord,
-      date: dateStr,
+      date: resolvedDate,
       hintsEnabled: true,
       hint1: `Category: ${selectedWordData?.category || "Unknown"}`,
       hint2: selectedWordData?.author
         ? `Written by ${selectedWordData.author}`
         : undefined,
       hint3: selectedWordData?.category || undefined,
+      reflectionQuestion,
       overwrite,
     };
 
@@ -151,7 +157,9 @@ export default function AdminPage() {
 
       if (response.status === 409 && !overwrite) {
         setPendingOverwrite(payload);
-        setMessage("A challenge already exists for tomorrow. Replace it?");
+        setMessage(
+          `A challenge already exists for ${publishToday ? "today" : "tomorrow"}. Replace it?`
+        );
         return;
       }
 
@@ -171,7 +179,7 @@ export default function AdminPage() {
 
   const confirmOverwrite = () => {
     if (pendingOverwrite) {
-      handleCreateChallenge(true, true);
+      handleCreateChallenge(true, false, pendingOverwrite.date);
     }
   };
 
@@ -182,9 +190,32 @@ export default function AdminPage() {
 
   const handleSaveChanges = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    setMessage("Changes saved!");
+    setMessage("");
+
+    const today = new Date().toISOString().split("T")[0];
+
+    try {
+      const response = await fetch("/api/admin/challenge", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: today, reflectionQuestion }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(
+          data.error ||
+            "No challenge published yet. Your question will be saved when you publish."
+        );
+      } else {
+        setMessage("Changes saved!");
+      }
+    } catch {
+      setMessage("Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePublishLive = async () => {

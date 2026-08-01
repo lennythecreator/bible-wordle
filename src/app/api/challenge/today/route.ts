@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import DailyChallenge from "@/models/DailyChallenge";
+import Attempt from "@/models/Attempt";
 import { getTodayDate } from "@/lib/gameLogic";
 
 export async function GET() {
@@ -27,7 +28,14 @@ export async function GET() {
       );
     }
 
-    const word = challenge.word as any;
+    const word = challenge.word as unknown as { word: string };
+
+    const attempts = await Attempt.find({
+      user: user.id,
+      challenge: challenge._id,
+    })
+      .select("guess result attemptNumber")
+      .sort({ attemptNumber: 1 });
 
     return NextResponse.json({
       challengeId: challenge._id,
@@ -36,9 +44,15 @@ export async function GET() {
       hint1: challenge.hintsEnabled ? challenge.hint1 : undefined,
       hint2: challenge.hintsEnabled ? challenge.hint2 : undefined,
       hint3: challenge.hintsEnabled ? challenge.hint3 : undefined,
+      reflectionQuestion: challenge.reflectionQuestion,
       dayNumber: Math.floor(
         (today.getTime() - new Date("2024-01-01").getTime()) / (1000 * 60 * 60 * 24)
       ),
+      attempts: attempts.map((a) => ({
+        guess: a.guess,
+        result: a.result,
+        attemptNumber: a.attemptNumber,
+      })),
     });
   } catch (error) {
     console.error("Get challenge error:", error);

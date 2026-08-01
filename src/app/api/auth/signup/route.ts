@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
 import { hashPassword, generateToken, setAuthCookie } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
+import { getClientIp, rateLimit } from "@/lib/rateLimit";
 import User from "@/models/User";
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const { allowed, retryAfterSeconds } = rateLimit(`signup:${ip}`);
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many signup attempts. Please try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(retryAfterSeconds) },
+        }
+      );
+    }
+
     const { name, email, password, username } = await req.json();
 
     if (!name || !email || !password) {
@@ -72,6 +86,12 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error) {
+    if ((error as { code?: number }).code === 11000) {
+      return NextResponse.json(
+        { error: "User already exists with this email or username" },
+        { status: 409 }
+      );
+    }
     console.error("Signup error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

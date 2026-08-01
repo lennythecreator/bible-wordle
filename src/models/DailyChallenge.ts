@@ -8,6 +8,7 @@ export interface IDailyChallenge extends Document {
   hint1?: string;
   hint2?: string;
   hint3?: string;
+  reflectionQuestion?: string;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +39,10 @@ const DailyChallengeSchema = new Schema<IDailyChallenge>(
       trim: true,
     },
     hint3: {
+      type: String,
+      trim: true,
+    },
+    reflectionQuestion: {
       type: String,
       trim: true,
     },
