@@ -41,9 +41,15 @@ export async function GET() {
       .select("guess result attemptNumber")
       .sort({ attemptNumber: 1 });
 
+    const finished =
+      attempts.some((a) => a.result.every((r: string) => r === "correct")) ||
+      attempts.length >= 6;
+
     return NextResponse.json({
       challengeId: challenge._id,
       wordLength: word.word.length,
+      answer: finished ? word.word : undefined,
+      maxAttempts: 6,
       hintsEnabled: challenge.hintsEnabled,
       hint1: challenge.hintsEnabled ? challenge.hint1 : undefined,
       hint2: challenge.hintsEnabled ? challenge.hint2 : undefined,

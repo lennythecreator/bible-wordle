@@ -136,6 +136,10 @@ async function submitAttempt({
     isCorrect: evaluation.isCorrect,
     attemptsUsed: attemptNumber,
     maxAttempts: MAX_ATTEMPTS,
+    answer:
+      evaluation.isCorrect || attemptNumber >= MAX_ATTEMPTS
+        ? answer
+        : undefined,
   });
 }
 

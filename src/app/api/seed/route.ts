@@ -7,21 +7,25 @@ export async function POST(req: Request) {
   try {
     const { secret } = await req.json();
 
-    if (secret !== process.env.SEED_SECRET) {
+    if (!process.env.SEED_SECRET || secret !== process.env.SEED_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const adminEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD || "";
+    const adminName = process.env.ADMIN_NAME || "Admin";
+    const adminUsername = process.env.ADMIN_USERNAME || undefined;
+
+    if (!adminEmail || !adminPassword) {
+      return NextResponse.json(
+        { error: "ADMIN_EMAIL and ADMIN_PASSWORD environment variables must be set" },
+        { status: 500 }
+      );
     }
 
     await connectToDatabase();
 
-    const adminData = {
-      name: "Lenny",
-      email: "leouwaeme@gmail.com",
-      password: await hashPassword("Sonicboom123!"),
-      username: "Lennyuwaeme",
-      role: "admin" as const,
-    };
-
-    const existingUser = await User.findOne({ email: adminData.email });
+    const existingUser = await User.findOne({ email: adminEmail });
 
     if (existingUser) {
       existingUser.role = "admin";
@@ -29,7 +33,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "User updated to admin", user: existingUser });
     }
 
-    const adminUser = await User.create(adminData);
+    const adminUser = await User.create({
+      name: adminName,
+      email: adminEmail,
+      password: await hashPassword(adminPassword),
+      username: adminUsername,
+      role: "admin",
+    });
 
     return NextResponse.json({
       message: "Admin user created",

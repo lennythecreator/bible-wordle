@@ -11,6 +11,8 @@ import { useAuth } from "@/contexts/AuthContext";
 interface Challenge {
   challengeId: string;
   wordLength: number;
+  answer?: string;
+  maxAttempts?: number;
   hintsEnabled: boolean;
   hint1?: string;
   hint2?: string;
@@ -32,6 +34,7 @@ export default function PlayPage() {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [guesses, setGuesses] = useState<Guess[]>([]);
   const [currentGuess, setCurrentGuess] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
   const [error, setError] = useState("");
@@ -87,6 +90,7 @@ export default function PlayPage() {
         if (response.ok) {
           const data = await response.json();
           setChallenge(data);
+          if (data.answer) setAnswer(data.answer);
 
           const savedAttempts: Guess[] = (data.attempts || []).map(
             (a: { guess: string; result: GuessResult[] }) => ({
@@ -180,6 +184,7 @@ export default function PlayPage() {
       setGuesses(newGuesses);
       setCurrentGuess("");
       setSubmitting(false);
+      if (data.answer) setAnswer(data.answer);
       setIsRevealing(true);
 
       const revealDuration = challenge.wordLength * 250 + 500;
@@ -285,6 +290,11 @@ export default function PlayPage() {
                 <p className="font-display text-headline-lg-mobile text-white mb-2 bounce">
                   🎉 Great Job!
                 </p>
+                {answer && (
+                  <p className="font-body text-white text-sm md:text-base">
+                    The word was: {answer}
+                  </p>
+                )}
                 <p className="font-body text-white text-sm md:text-base">
                   Solved in {guesses.length}/6 attempts
                 </p>
@@ -294,6 +304,11 @@ export default function PlayPage() {
                 <p className="font-display text-headline-lg-mobile text-on-surface mb-2">
                   Game Over!
                 </p>
+                {answer && (
+                  <p className="font-body text-on-surface font-bold text-lg md:text-xl mb-1">
+                    The word was: {answer}
+                  </p>
+                )}
                 <p className="font-body text-on-surface-variant text-sm md:text-base">
                   Better luck tomorrow!
                 </p>
