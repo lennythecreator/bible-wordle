@@ -1,3 +1,5 @@
+import { getTodayUtcDate } from "@/lib/dates";
+
 export type GuessResult = "correct" | "wrong" | "missing";
 
 export interface EvaluateGuessResponse {
@@ -59,7 +61,5 @@ export function formatDate(date: Date): string {
 }
 
 export function getTodayDate(): Date {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now;
+  return getTodayUtcDate();
 }

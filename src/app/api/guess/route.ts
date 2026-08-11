@@ -7,6 +7,7 @@ import DailyChallenge from "@/models/DailyChallenge";
 import Attempt from "@/models/Attempt";
 import UserStats from "@/models/UserStats";
 import { evaluateGuess, isValidWord, getTodayDate } from "@/lib/gameLogic";
+import { toDateKey } from "@/lib/dates";
 
 const MAX_ATTEMPTS = 6;
 
@@ -176,10 +177,8 @@ export async function POST(req: Request) {
     }
 
     const today = getTodayDate();
-    const challengeDate = new Date(challenge.date);
-    challengeDate.setHours(0, 0, 0, 0);
 
-    if (challengeDate.getTime() !== today.getTime()) {
+    if (toDateKey(challenge.date) !== toDateKey(today)) {
       return NextResponse.json(
         { error: "This challenge is not available today" },
         { status: 400 }

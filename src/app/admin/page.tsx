@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { addUtcDays, toDateKey } from "@/lib/dates";
 
 interface BibleWord {
   _id: string;
@@ -93,7 +94,7 @@ export default function AdminPage() {
 
         if (challengesRes.ok) {
           const challengesData = await challengesRes.json();
-          const today = new Date().toISOString().split("T")[0];
+          const today = toDateKey(new Date());
           const todayChallenge = (challengesData.challenges || []).find(
             (c: { date: string }) => c.date.split("T")[0] === today
           );
@@ -127,11 +128,8 @@ export default function AdminPage() {
     }
     setMessage("");
 
-    const targetDate = new Date();
-    if (!publishToday) {
-      targetDate.setDate(targetDate.getDate() + 1);
-    }
-    const resolvedDate = dateStr ?? targetDate.toISOString().split("T")[0];
+    const dayOffset = publishToday ? 0 : 1;
+    const resolvedDate = dateStr ?? toDateKey(addUtcDays(new Date(), dayOffset));
 
     const payload = {
       wordId: selectedWord,
@@ -192,7 +190,7 @@ export default function AdminPage() {
     setSaving(true);
     setMessage("");
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = toDateKey(new Date());
 
     try {
       const response = await fetch("/api/admin/challenge", {

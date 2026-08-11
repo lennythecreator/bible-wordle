@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
+import { utcDateFromKey } from "@/lib/dates";
 import DailyChallenge from "@/models/DailyChallenge";
 import BibleWord from "@/models/BibleWord";
 
@@ -56,8 +57,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Word not found" }, { status: 404 });
     }
 
-    const challengeDate = new Date(date);
-    challengeDate.setHours(0, 0, 0, 0);
+    let challengeDate: Date;
+    try {
+      challengeDate = utcDateFromKey(date);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid date format. Expected YYYY-MM-DD" },
+        { status: 400 }
+      );
+    }
 
     const existingChallenge = await DailyChallenge.findOne({
       date: challengeDate,
@@ -137,8 +145,15 @@ export async function PATCH(req: Request) {
 
     await connectToDatabase();
 
-    const challengeDate = new Date(date);
-    challengeDate.setHours(0, 0, 0, 0);
+    let challengeDate: Date;
+    try {
+      challengeDate = utcDateFromKey(date);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid date format. Expected YYYY-MM-DD" },
+        { status: 400 }
+      );
+    }
 
     const challenge = await DailyChallenge.findOne({ date: challengeDate });
 

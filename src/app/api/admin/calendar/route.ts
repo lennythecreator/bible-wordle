@@ -12,16 +12,21 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1));
-    const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
+    const now = new Date();
+    const month = parseInt(
+      searchParams.get("month") || String(now.getUTCMonth() + 1)
+    );
+    const year = parseInt(
+      searchParams.get("year") || String(now.getUTCFullYear())
+    );
 
     await connectToDatabase();
 
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 1));
 
     const challenges = await DailyChallenge.find({
-      date: { $gte: startDate, $lte: endDate },
+      date: { $gte: startDate, $lt: endDate },
     })
       .populate("word", "word category testament")
       .sort({ date: 1 });

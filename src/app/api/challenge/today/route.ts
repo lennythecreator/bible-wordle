@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import DailyChallenge from "@/models/DailyChallenge";
 import Attempt from "@/models/Attempt";
 import { getTodayDate } from "@/lib/gameLogic";
+import { addUtcDays } from "@/lib/dates";
 
 export async function GET() {
   try {
@@ -16,8 +17,11 @@ export async function GET() {
     await connectToDatabase();
 
     const today = getTodayDate();
+    const tomorrow = addUtcDays(today, 1);
 
-    const challenge = await DailyChallenge.findOne({ date: today })
+    const challenge = await DailyChallenge.findOne({
+      date: { $gte: today, $lt: tomorrow },
+    })
       .populate("word", "word category testament")
       .populate("createdBy", "name");
 
