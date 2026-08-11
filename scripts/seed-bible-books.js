@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
-const MONGODB_URI = 'mongodb+srv://lenyeuwaeme:churchgame@cluster0.1vm0yi1.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bible-wordle';
+
+if (!process.env.MONGODB_URI) {
+  console.warn('MONGODB_URI not set, falling back to localhost (no remote credentials stored in this file).');
+}
 
 const BIBLE_BOOKS = [
   // Old Testament - Law
