@@ -49,6 +49,53 @@ export default function PlayPage() {
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const fetchChallenge = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) {
+        setLoading(true);
+      }
+
+      try {
+        const response = await fetch("/api/challenge/today", {
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setChallenge(data);
+          if (data.answer) setAnswer(data.answer);
+
+          const savedAttempts: Guess[] = (data.attempts || []).map(
+            (a: { guess: string; result: GuessResult[] }) => ({
+              guess: a.guess,
+              result: a.result,
+            })
+          );
+
+          if (savedAttempts.length > 0) {
+            setGuesses(savedAttempts);
+            updateLetterStatuses(savedAttempts);
+
+            const solved = savedAttempts.some((g) =>
+              g.result.every((r) => r === "correct")
+            );
+            setWon(solved);
+            setGameOver(solved || savedAttempts.length >= 6);
+          }
+        } else {
+          setError("No challenge available today");
+        }
+      } catch {
+        setError("Failed to load challenge");
+      } finally {
+        if (showLoading) {
+          setLoading(false);
+        }
+      }
+    },
+    [updateLetterStatuses]
+  );
+
   useEffect(() => {
     return () => {
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
@@ -84,45 +131,20 @@ export default function PlayPage() {
   }, []);
 
   useEffect(() => {
-    const fetchChallenge = async () => {
-      try {
-        const response = await fetch("/api/challenge/today");
-        if (response.ok) {
-          const data = await response.json();
-          setChallenge(data);
-          if (data.answer) setAnswer(data.answer);
-
-          const savedAttempts: Guess[] = (data.attempts || []).map(
-            (a: { guess: string; result: GuessResult[] }) => ({
-              guess: a.guess,
-              result: a.result,
-            })
-          );
-
-          if (savedAttempts.length > 0) {
-            setGuesses(savedAttempts);
-            updateLetterStatuses(savedAttempts);
-
-            const solved = savedAttempts.some((g) =>
-              g.result.every((r) => r === "correct")
-            );
-            setWon(solved);
-            setGameOver(solved || savedAttempts.length >= 6);
-          }
-        } else {
-          setError("No challenge available today");
-        }
-      } catch {
-        setError("Failed to load challenge");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) {
-      fetchChallenge();
+    if (!user) {
+      return;
     }
-  }, [user, updateLetterStatuses]);
+
+    fetchChallenge(true);
+
+    const intervalId = window.setInterval(() => {
+      fetchChallenge(false);
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [user, fetchChallenge]);
 
   const showError = useCallback((message: string) => {
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
@@ -238,7 +260,7 @@ export default function PlayPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <GameHeader attempts={guesses.length} maxAttempts={6} />
 
-      <main className="flex-grow flex flex-col items-center justify-start px-3 py-3 max-w-2xl mx-auto w-full md:justify-center md:py-6">
+      <main className="grow flex flex-col items-center justify-start px-3 py-3 max-w-2xl mx-auto w-full md:justify-center md:py-6">
         {/* Game Board */}
         <div className="w-full mb-4 md:mb-10">
           <GameBoard
@@ -334,34 +356,34 @@ export default function PlayPage() {
         <nav className="flex justify-around items-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 bg-surface border-t-4 border-surface-variant rounded-t-xl">
           <a
             href="/play"
-            className="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl px-4 py-1 translate-y-[-2px] border-b-4 border-on-secondary-fixed-variant active:translate-y-[4px] active:border-b-0 transition-all duration-75"
+            className="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl px-4 py-1 -translate-y-0.5 border-b-4 border-on-secondary-fixed-variant active:translate-y-1 active:border-b-0 transition-all duration-75"
           >
             <span className="material-symbols-outlined [font-variation-settings:'FILL'_1]">
               videogame_asset
             </span>
-            <span className="font-label text-[14px] leading-[20px] tracking-[0.05em] font-bold">
+            <span className="font-label text-[14px] leading-5 tracking-wider font-bold">
               Play
             </span>
           </a>
 
           <a
             href="/stats"
-            className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high active:translate-y-[2px] transition-all duration-75"
+            className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high active:translate-y-0.5 transition-all duration-75"
           >
             <span className="material-symbols-outlined">
               local_fire_department
             </span>
-            <span className="font-label text-[14px] leading-[20px] tracking-[0.05em] font-bold">
+            <span className="font-label text-[14px] leading-5 tracking-wider font-bold">
               Streaks
             </span>
           </a>
 
           <a
             href="/dashboard"
-            className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high active:translate-y-[2px] transition-all duration-75"
+            className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high active:translate-y-0.5 transition-all duration-75"
           >
             <span className="material-symbols-outlined">menu_book</span>
-            <span className="font-label text-[14px] leading-[20px] tracking-[0.05em] font-bold">
+            <span className="font-label text-[14px] leading-5 tracking-wider font-bold">
               Bible
             </span>
           </a>

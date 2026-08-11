@@ -14,9 +14,13 @@ export function GameHeader({ attempts = 0, maxAttempts = 6 }: GameHeaderProps) {
     <header className="w-full top-0 sticky bg-surface z-40 border-b-4 border-surface-variant">
       <div className="flex justify-between items-center px-6 py-4 w-full max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-3xl cursor-pointer hover:opacity-80 transition-opacity">
-            menu
-          </span>
+          <Link
+            href="/dashboard"
+            aria-label="Home"
+            className="material-symbols-outlined text-primary text-3xl cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            home
+          </Link>
           <h1 className="font-display text-headline-lg-mobile md:text-display text-primary tracking-tight">
             {attempts}/{maxAttempts}
           </h1>
@@ -38,7 +42,7 @@ export function GameHeader({ attempts = 0, maxAttempts = 6 }: GameHeaderProps) {
               Archive
             </span>
           </div>
-          <button className="material-symbols-outlined text-primary text-3xl active:translate-y-[2px] transition-transform">
+          <button className="material-symbols-outlined text-primary text-3xl active:translate-y-0.5 transition-transform">
             settings
           </button>
         </div>
