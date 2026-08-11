@@ -7,7 +7,7 @@ import DailyChallenge from "@/models/DailyChallenge";
 import Attempt from "@/models/Attempt";
 import UserStats from "@/models/UserStats";
 import { evaluateGuess, isValidWord, getTodayDate } from "@/lib/gameLogic";
-import { toDateKey } from "@/lib/dates";
+import { toDateKey, addUtcDays } from "@/lib/dates";
 
 const MAX_ATTEMPTS = 6;
 
@@ -68,55 +68,62 @@ async function submitAttempt({
     session ? { session } : undefined
   );
 
-  if (evaluation.isCorrect) {
-    let stats = session
-      ? await UserStats.findOne({ user: userId }).session(session)
-      : await UserStats.findOne({ user: userId });
+  const now = new Date();
+  const todayKey = toDateKey(now);
+  const yesterdayKey = toDateKey(addUtcDays(now, -1));
 
-    if (!stats) {
-      const [created] = session
-        ? await UserStats.create(
-            [
-              {
-                user: userId,
-                gamesPlayed: 1,
-                wins: 1,
-                currentStreak: 1,
-                longestStreak: 1,
-                lastPlayedAt: new Date(),
-              },
-            ],
-            { session }
-          )
-        : await UserStats.create([
+  let stats = session
+    ? await UserStats.findOne({ user: userId }).session(session)
+    : await UserStats.findOne({ user: userId });
+
+  if (!stats) {
+    const [created] = session
+      ? await UserStats.create(
+          [
             {
               user: userId,
               gamesPlayed: 1,
-              wins: 1,
-              currentStreak: 1,
-              longestStreak: 1,
-              lastPlayedAt: new Date(),
+              wins: evaluation.isCorrect ? 1 : 0,
+              currentStreak: evaluation.isCorrect ? 1 : 0,
+              longestStreak: evaluation.isCorrect ? 1 : 0,
+              lastPlayedAt: now,
             },
-          ]);
-      stats = created;
-    } else {
-      const lastPlayed = stats.lastPlayedAt ? new Date(stats.lastPlayedAt) : null;
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
+          ],
+          { session }
+        )
+      : await UserStats.create([
+          {
+            user: userId,
+            gamesPlayed: 1,
+            wins: evaluation.isCorrect ? 1 : 0,
+            currentStreak: evaluation.isCorrect ? 1 : 0,
+            longestStreak: evaluation.isCorrect ? 1 : 0,
+            lastPlayedAt: now,
+          },
+        ]);
+    stats = created;
+  } else {
+    const lastPlayedKey = stats.lastPlayedAt
+      ? toDateKey(new Date(stats.lastPlayedAt))
+      : null;
+    const alreadyPlayedToday = lastPlayedKey === todayKey;
 
-      const yesterday = new Date(todayDate);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const isConsecutiveDay =
-        lastPlayed &&
-        (lastPlayed.getTime() === todayDate.getTime() ||
-          lastPlayed.getTime() === yesterday.getTime());
-
+    if (!alreadyPlayedToday) {
       stats.gamesPlayed += 1;
-      stats.wins += 1;
-      stats.currentStreak = isConsecutiveDay ? stats.currentStreak + 1 : 1;
-      stats.longestStreak = Math.max(stats.longestStreak, stats.currentStreak);
-      stats.lastPlayedAt = new Date();
+
+      if (evaluation.isCorrect) {
+        stats.wins += 1;
+        stats.currentStreak =
+          lastPlayedKey === yesterdayKey ? stats.currentStreak + 1 : 1;
+        stats.longestStreak = Math.max(
+          stats.longestStreak,
+          stats.currentStreak
+        );
+      } else {
+        stats.currentStreak = 0;
+      }
+
+      stats.lastPlayedAt = now;
 
       if (session) {
         await stats.save({ session });

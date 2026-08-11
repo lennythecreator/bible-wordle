@@ -26,16 +26,22 @@ export async function GET() {
       });
     }
 
-    const recentAttempts = await Attempt.find({ user: user.id })
-      .populate("challenge")
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const allAttempts = await Attempt.find({ user: user.id }).select(
+      "challenge result attemptNumber"
+    );
+
+    const solvedAttemptNumbers = allAttempts
+      .filter(
+        (a) =>
+          a.result.length > 0 && a.result.every((r: string) => r === "correct")
+      )
+      .map((a) => a.attemptNumber);
 
     const averageAttempts =
-      stats.wins > 0
+      solvedAttemptNumbers.length > 0
         ? (
-            recentAttempts.reduce((sum: number, a: any) => sum + a.attemptNumber, 0) /
-            Math.min(recentAttempts.length, stats.wins)
+            solvedAttemptNumbers.reduce((sum: number, n: number) => sum + n, 0) /
+            solvedAttemptNumbers.length
           ).toFixed(1)
         : "0";
 
