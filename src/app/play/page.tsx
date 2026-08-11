@@ -27,6 +27,101 @@ interface Guess {
   result: GuessResult[];
 }
 
+interface ChallengeResponse {
+  challengeId: string;
+  wordLength: number;
+  answer?: string;
+  maxAttempts: number;
+  hintsEnabled: boolean;
+  hint1?: string;
+  hint2?: string;
+  hint3?: string;
+  reflectionQuestion?: string;
+  dayNumber: number;
+  attempts?: {
+    guess: string;
+    result: GuessResult[];
+    attemptNumber: number;
+  }[];
+}
+
+interface GuessResponse {
+  attempt: {
+    id: string;
+    guess: string;
+    result: GuessResult[];
+    attemptNumber: number;
+  };
+  isCorrect: boolean;
+  attemptsUsed: number;
+  maxAttempts: number;
+  answer?: string;
+}
+
+const VALID_GUESS_RESULTS = new Set<GuessResult>([
+  "correct",
+  "wrong",
+  "missing",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isGuessResult(value: unknown): value is GuessResult {
+  return typeof value === "string" && VALID_GUESS_RESULTS.has(value as GuessResult);
+}
+
+function isGuessArray(value: unknown): value is GuessResult[] {
+  return Array.isArray(value) && value.every(isGuessResult);
+}
+
+function isChallengeResponse(value: unknown): value is ChallengeResponse {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.challengeId === "string" &&
+    typeof value.wordLength === "number" &&
+    typeof value.maxAttempts === "number" &&
+    typeof value.hintsEnabled === "boolean" &&
+    typeof value.dayNumber === "number" &&
+    (value.answer === undefined || typeof value.answer === "string") &&
+    (value.hint1 === undefined || typeof value.hint1 === "string") &&
+    (value.hint2 === undefined || typeof value.hint2 === "string") &&
+    (value.hint3 === undefined || typeof value.hint3 === "string") &&
+    (value.reflectionQuestion === undefined ||
+      typeof value.reflectionQuestion === "string") &&
+    (value.attempts === undefined ||
+      (Array.isArray(value.attempts) &&
+        value.attempts.every(
+          (attempt) =>
+            isRecord(attempt) &&
+            typeof attempt.guess === "string" &&
+            typeof attempt.attemptNumber === "number" &&
+            isGuessArray(attempt.result)
+        )))
+  );
+}
+
+function isGuessResponse(value: unknown): value is GuessResponse {
+  if (!isRecord(value) || !isRecord(value.attempt)) {
+    return false;
+  }
+
+  return (
+    typeof value.isCorrect === "boolean" &&
+    typeof value.attemptsUsed === "number" &&
+    typeof value.maxAttempts === "number" &&
+    (value.answer === undefined || typeof value.answer === "string") &&
+    typeof value.attempt.id === "string" &&
+    typeof value.attempt.guess === "string" &&
+    typeof value.attempt.attemptNumber === "number" &&
+    isGuessArray(value.attempt.result)
+  );
+}
+
 export default function PlayPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -49,6 +144,27 @@ export default function PlayPage() {
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const updateLetterStatuses = useCallback((guesses: Guess[]) => {
+    const statuses: Record<string, GuessResult> = {};
+
+    for (const { result, guess } of guesses) {
+      for (let i = 0; i < guess.length; i++) {
+        const letter = guess[i];
+        const currentStatus = statuses[letter];
+
+        if (result[i] === "correct") {
+          statuses[letter] = "correct";
+        } else if (result[i] === "wrong" && currentStatus !== "correct") {
+          statuses[letter] = "wrong";
+        } else if (!currentStatus && result[i] === "missing") {
+          statuses[letter] = "missing";
+        }
+      }
+    }
+
+    setLetterStatuses(statuses);
+  }, []);
+
   const fetchChallenge = useCallback(
     async (showLoading = false) => {
       if (showLoading) {
@@ -61,7 +177,13 @@ export default function PlayPage() {
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const data: unknown = await response.json();
+
+          if (!isChallengeResponse(data)) {
+            setError("Challenge payload was invalid");
+            return;
+          }
+
           setChallenge(data);
           if (data.answer) setAnswer(data.answer);
 
@@ -83,7 +205,12 @@ export default function PlayPage() {
             setGameOver(solved || savedAttempts.length >= 6);
           }
         } else {
-          setError("No challenge available today");
+          const errorData: unknown = await response.json().catch(() => null);
+          const message =
+            isRecord(errorData) && typeof errorData.error === "string"
+              ? errorData.error
+              : `No challenge available today (${response.status})`;
+          setError(message);
         }
       } catch {
         setError("Failed to load challenge");
@@ -108,27 +235,6 @@ export default function PlayPage() {
       router.push("/login");
     }
   }, [authLoading, user, router]);
-
-  const updateLetterStatuses = useCallback((guesses: Guess[]) => {
-    const statuses: Record<string, GuessResult> = {};
-
-    for (const { result, guess } of guesses) {
-      for (let i = 0; i < guess.length; i++) {
-        const letter = guess[i];
-        const currentStatus = statuses[letter];
-
-        if (result[i] === "correct") {
-          statuses[letter] = "correct";
-        } else if (result[i] === "wrong" && currentStatus !== "correct") {
-          statuses[letter] = "wrong";
-        } else if (!currentStatus && result[i] === "missing") {
-          statuses[letter] = "missing";
-        }
-      }
-    }
-
-    setLetterStatuses(statuses);
-  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -189,10 +295,20 @@ export default function PlayPage() {
         }),
       });
 
-      const data = await response.json();
+      const data: unknown = await response.json();
 
       if (!response.ok) {
-        showError(data.error || "Failed to submit guess");
+        const message =
+          isRecord(data) && typeof data.error === "string"
+            ? data.error
+            : `Failed to submit guess (${response.status})`;
+        showError(message);
+        setSubmitting(false);
+        return;
+      }
+
+      if (!isGuessResponse(data)) {
+        showError("Guess response was invalid");
         setSubmitting(false);
         return;
       }
