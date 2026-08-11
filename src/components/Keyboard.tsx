@@ -11,6 +11,7 @@ interface KeyboardProps {
 }
 
 const ROWS = [
+  ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
   ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
   ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
   ["ENTER", "Z", "X", "C", "V", "B", "N", "M", "DELETE"],
@@ -61,8 +62,8 @@ export function Keyboard({
           key={rowIndex}
           className="flex justify-center gap-[4px] md:gap-[6px] w-full"
           style={{
-            paddingLeft: rowIndex === 1 ? '12px' : '0',
-            paddingRight: rowIndex === 1 ? '12px' : '0'
+            paddingLeft: rowIndex === 2 ? '12px' : '0',
+            paddingRight: rowIndex === 2 ? '12px' : '0'
           }}
         >
           {row.map((key) => (
