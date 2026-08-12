@@ -3,9 +3,9 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Bible Book Wordle",
+  title: "Bible Wordle",
   description:
-    "A daily Bible-inspired Wordle game where users guess hidden Bible books using classic Wordle mechanics.",
+    "A daily Bible-inspired Wordle game where you guess hidden words from the word bank — Bible books and more — using classic Wordle mechanics.",
 };
 
 export default function RootLayout({

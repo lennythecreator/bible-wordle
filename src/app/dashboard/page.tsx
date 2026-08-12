@@ -140,8 +140,8 @@ export default function DashboardPage() {
               How to Play
             </h2>
             <div className="space-y-3 font-body text-on-surface-variant">
-              <p>1. Guess the hidden Bible book in 6 tries</p>
-              <p>2. Each guess must be a valid Bible book name (4+ letters)</p>
+              <p>1. Guess the hidden word in 6 tries</p>
+              <p>2. Type a guess the same length as the answer, using letters or numbers (answers can be Bible books or words the game master has added)</p>
               <p>3. After each guess, the tiles will change color:</p>
               <ul className="list-none space-y-2 ml-4">
                 <li className="flex items-center gap-2">

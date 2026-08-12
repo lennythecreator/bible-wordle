@@ -165,7 +165,7 @@ export default function StatsPage() {
               Ready for another?
             </h2>
             <p className="font-body text-on-surface-variant mb-4">
-              A new Bible book challenge is waiting for you.
+              A new challenge is waiting for you.
             </p>
             <Link href="/play" className="btn-action inline-block">
               Play Now
