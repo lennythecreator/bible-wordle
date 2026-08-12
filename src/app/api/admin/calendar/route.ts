@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import DailyChallenge from "@/models/DailyChallenge";
+import "@/models/BibleWord";
 
 export async function GET(req: Request) {
   try {

@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { withTransaction } from "@/lib/transactions";
 import DailyChallenge from "@/models/DailyChallenge";
+import "@/models/BibleWord";
 import Attempt from "@/models/Attempt";
 import UserStats from "@/models/UserStats";
 import { evaluateGuess, isValidWord, getTodayDate } from "@/lib/gameLogic";

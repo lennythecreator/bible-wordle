@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import DailyChallenge from "@/models/DailyChallenge";
+import "@/models/BibleWord";
 import Attempt from "@/models/Attempt";
 import { getTodayDate } from "@/lib/gameLogic";
 import { addUtcDays } from "@/lib/dates";
