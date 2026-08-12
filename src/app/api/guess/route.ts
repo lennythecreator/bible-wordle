@@ -7,14 +7,17 @@ import DailyChallenge from "@/models/DailyChallenge";
 import "@/models/BibleWord";
 import Attempt from "@/models/Attempt";
 import UserStats from "@/models/UserStats";
-import { evaluateGuess, isValidWord, getTodayDate } from "@/lib/gameLogic";
+import { evaluateGuess, isValidWord, getTodayDate, MAX_ATTEMPTS } from "@/lib/gameLogic";
 import { toDateKey, addUtcDays } from "@/lib/dates";
-
-const MAX_ATTEMPTS = 6;
+import {
+  getChallengesForDay,
+  getActiveRoundForUser,
+} from "@/lib/rounds";
 
 interface PopulatedChallenge {
   _id: mongoose.Types.ObjectId;
   date: Date;
+  round: number;
   word: { word: string };
 }
 
@@ -22,11 +25,13 @@ async function submitAttempt({
   userId,
   challenge,
   guess,
+  roundContext,
   session,
 }: {
   userId: string;
   challenge: PopulatedChallenge;
   guess: string;
+  roundContext: { round: number; totalRounds: number; nextRoundAvailable: boolean };
   session?: mongoose.ClientSession;
 }) {
   const query = Attempt.find({ user: userId, challenge: challenge._id }).sort({
@@ -52,9 +57,10 @@ async function submitAttempt({
     );
   }
 
-  const answer = challenge.word.word.toUpperCase();
-  const evaluation = evaluateGuess(guess, answer);
-  const attemptNumber = existingAttempts.length + 1;
+const answer = challenge.word.word.toUpperCase();
+    const evaluation = evaluateGuess(guess, answer);
+    const attemptNumber = existingAttempts.length + 1;
+    const isNewRound = existingAttempts.length === 0;
 
   const [attempt] = await Attempt.create(
     [
@@ -109,11 +115,15 @@ async function submitAttempt({
       : null;
     const alreadyPlayedToday = lastPlayedKey === todayKey;
 
-    if (!alreadyPlayedToday) {
+    if (isNewRound) {
       stats.gamesPlayed += 1;
+    }
+    if (evaluation.isCorrect) {
+      stats.wins += 1;
+    }
 
+    if (!alreadyPlayedToday) {
       if (evaluation.isCorrect) {
-        stats.wins += 1;
         stats.currentStreak =
           lastPlayedKey === yesterdayKey ? stats.currentStreak + 1 : 1;
         stats.longestStreak = Math.max(
@@ -125,12 +135,12 @@ async function submitAttempt({
       }
 
       stats.lastPlayedAt = now;
+    }
 
-      if (session) {
-        await stats.save({ session });
-      } else {
-        await stats.save();
-      }
+    if (session) {
+      await stats.save({ session });
+    } else {
+      await stats.save();
     }
   }
 
@@ -144,6 +154,9 @@ async function submitAttempt({
     isCorrect: evaluation.isCorrect,
     attemptsUsed: attemptNumber,
     maxAttempts: MAX_ATTEMPTS,
+    round: roundContext.round,
+    totalRounds: roundContext.totalRounds,
+    nextRoundAvailable: roundContext.nextRoundAvailable,
     answer:
       evaluation.isCorrect || attemptNumber >= MAX_ATTEMPTS
         ? answer
@@ -189,6 +202,7 @@ export async function POST(req: Request) {
     }
 
     const today = getTodayDate();
+    const tomorrow = addUtcDays(today, 1);
 
     if (toDateKey(challenge.date) !== toDateKey(today)) {
       return NextResponse.json(
@@ -196,6 +210,29 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const dayChallenges = await getChallengesForDay(today, tomorrow);
+    const active = await getActiveRoundForUser(user.id, dayChallenges);
+
+    if (!active) {
+      return NextResponse.json(
+        { error: "No challenge available for today" },
+        { status: 400 }
+      );
+    }
+
+    if (active.challenge._id.toString() !== challenge._id.toString()) {
+      return NextResponse.json(
+        { error: "Finish the current round before starting the next one" },
+        { status: 400 }
+      );
+    }
+
+    const roundContext = {
+      round: active.round,
+      totalRounds: active.totalRounds,
+      nextRoundAvailable: active.nextRoundAvailable,
+    };
 
     const answer = challenge.word.word.toUpperCase();
 
@@ -207,11 +244,11 @@ export async function POST(req: Request) {
     }
 
     const result = await withTransaction((session) =>
-      submitAttempt({ userId: user.id, challenge, guess, session })
+      submitAttempt({ userId: user.id, challenge, guess, roundContext, session })
     );
 
     if (result === null) {
-      return submitAttempt({ userId: user.id, challenge, guess });
+      return submitAttempt({ userId: user.id, challenge, guess, roundContext });
     }
 
     return result;

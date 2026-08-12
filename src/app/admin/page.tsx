@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { addUtcDays, toDateKey } from "@/lib/dates";
@@ -25,6 +25,14 @@ interface AdminUser {
   gamesPlayed: number;
 }
 
+interface TodayRound {
+  _id: string;
+  round: number;
+  word?: { word: string; category: string };
+  attemptCount: number;
+  solvedCount: number;
+}
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -44,6 +52,7 @@ export default function AdminPage() {
     word: string;
     date: string;
   } | null>(null);
+  const [todayRounds, setTodayRounds] = useState<TodayRound[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [pendingOverwrite, setPendingOverwrite] = useState<{
     wordId: string;
@@ -73,49 +82,70 @@ export default function AdminPage() {
     }
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [wordsRes, usersRes, challengesRes] = await Promise.all([
-          fetch("/api/admin/words"),
-          fetch("/api/admin/users"),
-          fetch("/api/admin/challenge"),
-        ]);
+  const fetchChallenges = useCallback(async () => {
+      const challengesRes = await fetch("/api/admin/challenge");
 
-        if (wordsRes.ok) {
-          const wordsData = await wordsRes.json();
-          setWords(wordsData.words || []);
-        }
-
-        if (usersRes.ok) {
-          const usersData = await usersRes.json();
-          setUsers(usersData.users || []);
-        }
-
-        if (challengesRes.ok) {
-          const challengesData = await challengesRes.json();
-          const today = toDateKey(new Date());
-          const todayChallenge = (challengesData.challenges || []).find(
-            (c: { date: string }) => c.date.split("T")[0] === today
-          );
-          if (todayChallenge?.word?.word) {
-            setActiveChallenge({
-              word: todayChallenge.word.word,
-              date: todayChallenge.date,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      } finally {
-        setLoading(false);
+      if (!challengesRes.ok) {
+        return;
       }
-    };
 
-    if (user && user.role === "admin") {
-      fetchData();
+      const challengesData = await challengesRes.json();
+      const today = toDateKey(new Date());
+      const todayChallenges = (challengesData.challenges || [])
+        .filter((c: { date: string }) => c.date.split("T")[0] === today)
+        .sort((a: { round: number }, b: { round: number }) => a.round - b.round);
+
+      setTodayRounds(todayChallenges as TodayRound[]);
+
+      const latest = todayChallenges[todayChallenges.length - 1];
+      if (latest?.word?.word) {
+        setActiveChallenge({
+          word: latest.word.word,
+          date: latest.date,
+        });
+      }
+    }, []);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [wordsRes, usersRes] = await Promise.all([
+        fetch("/api/admin/words"),
+        fetch("/api/admin/users"),
+      ]);
+
+      if (wordsRes.ok) {
+        const wordsData = await wordsRes.json();
+        setWords(wordsData.words || []);
+      }
+
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData.users || []);
+      }
+
+      await fetchChallenges();
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+    } finally {
+      setLoading(false);
     }
-  }, [user]);
+  }, [fetchChallenges]);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") {
+      return;
+    }
+
+    fetchData();
+
+    const intervalId = window.setInterval(() => {
+      fetchChallenges();
+    }, 15000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [user, fetchData, fetchChallenges]);
 
   const handleCreateChallenge = async (
     overwrite = false,
@@ -167,6 +197,7 @@ export default function AdminPage() {
         setMessage("Challenge published successfully!");
         setSelectedWord("");
         setPendingOverwrite(null);
+        await fetchChallenges();
       }
     } catch {
       setMessage("Failed to create challenge");
@@ -508,6 +539,47 @@ export default function AdminPage() {
 
           {/* Right Column */}
           <div className="bento-col-narrow">
+            {/* Today's Rounds */}
+            <section className="card">
+              <div className="section-header">
+                <span className="material-symbols-outlined text-primary text-3xl">
+                  repeat
+                </span>
+                <h3 className="text-on-surface text-headline-lg-mobile md:text-headline-lg font-display">
+                  Today&apos;s Rounds
+                </h3>
+                <span className="text-label text-tertiary uppercase">
+                  ● LIVE
+                </span>
+              </div>
+              {todayRounds.length === 0 ? (
+                <p className="text-on-surface-variant text-body-sm">
+                  No round published for today yet.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2 mt-2">
+                  {todayRounds.map((round) => (
+                    <div
+                      key={round._id}
+                      className="flex items-center justify-between rounded-xl bg-surface-container px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-primary/15 text-primary text-label font-bold px-2 py-0.5">
+                          R{round.round}
+                        </span>
+                        <span className="text-body font-bold text-on-surface">
+                          {round.word?.word ?? "?"}
+                        </span>
+                      </div>
+                      <span className="text-label text-on-surface-variant">
+                        {round.solvedCount}/{round.attemptCount} solved
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             {/* Live Preview Card */}
             <section className="card-accent">
               <div className="section-header">

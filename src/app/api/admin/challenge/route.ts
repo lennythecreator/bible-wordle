@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import type mongoose from "mongoose";
 import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { utcDateFromKey } from "@/lib/dates";
 import DailyChallenge from "@/models/DailyChallenge";
 import BibleWord from "@/models/BibleWord";
+import Attempt from "@/models/Attempt";
 
 export async function GET() {
   try {
@@ -18,10 +20,63 @@ export async function GET() {
     const challenges = await DailyChallenge.find()
       .populate("word", "word category testament")
       .populate("createdBy", "name")
-      .sort({ date: -1 })
+      .sort({ date: -1, round: 1 })
       .limit(30);
 
-    return NextResponse.json({ challenges });
+    const challengeIds = challenges.map((c) => c._id);
+    const counts = await Attempt.aggregate<{
+      _id: mongoose.Types.ObjectId;
+      attemptCount: number;
+      solvedCount: number;
+    }>([
+      { $match: { challenge: { $in: challengeIds } } },
+      {
+        $group: {
+          _id: { challenge: "$challenge", user: "$user" },
+          solved: {
+            $max: {
+              $cond: [
+                {
+                  $allElementsTrue: {
+                    $map: {
+                      input: "$result",
+                      as: "r",
+                      in: { $eq: ["$$r", "correct"] },
+                    },
+                  },
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          attempts: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.challenge",
+          attemptCount: { $sum: "$attempts" },
+          solvedCount: { $sum: "$solved" },
+        },
+      },
+    ]);
+
+    const countMap = new Map(
+      counts.map((c) => [c._id.toString(), c])
+    );
+
+    const rounds = challenges.map((challenge) => {
+      const c = countMap.get(challenge._id.toString());
+      return {
+        ...challenge.toObject(),
+        round: challenge.round,
+        attemptCount: c?.attemptCount ?? 0,
+        solvedCount: c?.solvedCount ?? 0,
+      };
+    });
+
+    return NextResponse.json({ challenges: rounds });
   } catch (error) {
     console.error("Get admin challenges error:", error);
     return NextResponse.json(
@@ -39,7 +94,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { wordId, date, hintsEnabled, hint1, hint2, hint3, reflectionQuestion, overwrite } =
+    const { wordId, date, round, hintsEnabled, hint1, hint2, hint3, reflectionQuestion, overwrite } =
       await req.json();
 
     if (!wordId || !date) {
@@ -67,18 +122,27 @@ export async function POST(req: Request) {
       );
     }
 
+    const maxRoundResult = await DailyChallenge.find({ date: challengeDate })
+      .sort({ round: -1 })
+      .select("round")
+      .limit(1);
+    const targetRound =
+      round ?? (maxRoundResult.length > 0 ? maxRoundResult[0].round + 1 : 1);
+
     const existingChallenge = await DailyChallenge.findOne({
       date: challengeDate,
+      round: targetRound,
     });
 
     if (existingChallenge && !overwrite) {
       return NextResponse.json(
         {
-          error: "A challenge already exists for this date",
+          error: "A challenge already exists for this date and round",
           existingChallenge: {
             id: existingChallenge._id,
             wordId: existingChallenge.word,
             date: existingChallenge.date,
+            round,
           },
         },
         { status: 409 }
@@ -105,6 +169,7 @@ export async function POST(req: Request) {
     const challenge = await DailyChallenge.create({
       word: wordId,
       date: challengeDate,
+      round: targetRound,
       hintsEnabled: hintsEnabled ?? true,
       hint1: hint1 || `Category: ${word.category}`,
       hint2: hint2 || (word.author ? `Written by ${word.author}` : undefined),
@@ -155,21 +220,23 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const challenge = await DailyChallenge.findOne({ date: challengeDate });
+    const challenges = await DailyChallenge.find({ date: challengeDate });
 
-    if (!challenge) {
+    if (challenges.length === 0) {
       return NextResponse.json(
         { error: "No challenge found for this date" },
         { status: 404 }
       );
     }
 
-    challenge.reflectionQuestion = reflectionQuestion;
-    await challenge.save();
+    for (const challenge of challenges) {
+      challenge.reflectionQuestion = reflectionQuestion;
+      await challenge.save();
+    }
 
     return NextResponse.json({
       message: "Challenge updated successfully",
-      challenge,
+      challenge: challenges[0],
     });
   } catch (error) {
     console.error("Update challenge error:", error);

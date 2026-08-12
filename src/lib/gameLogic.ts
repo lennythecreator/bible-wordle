@@ -2,6 +2,8 @@ import { getTodayUtcDate } from "@/lib/dates";
 
 export type GuessResult = "correct" | "wrong" | "missing";
 
+export const MAX_ATTEMPTS = 6;
+
 export interface EvaluateGuessResponse {
   result: GuessResult[];
   isCorrect: boolean;

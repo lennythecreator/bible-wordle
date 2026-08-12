@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
-import DailyChallenge from "@/models/DailyChallenge";
 import "@/models/BibleWord";
 import Attempt from "@/models/Attempt";
-import { getTodayDate } from "@/lib/gameLogic";
+import { getTodayDate, MAX_ATTEMPTS } from "@/lib/gameLogic";
 import { addUtcDays } from "@/lib/dates";
+import {
+  getChallengesForDay,
+  getActiveRoundForUser,
+} from "@/lib/rounds";
 
 export async function GET() {
   try {
@@ -20,19 +23,18 @@ export async function GET() {
     const today = getTodayDate();
     const tomorrow = addUtcDays(today, 1);
 
-    const challenge = await DailyChallenge.findOne({
-      date: { $gte: today, $lt: tomorrow },
-    })
-      .populate("word", "word category testament")
-      .populate("createdBy", "name");
+    const challenges = await getChallengesForDay(today, tomorrow);
 
-    if (!challenge) {
+    const active = await getActiveRoundForUser(user.id, challenges);
+
+    if (!active) {
       return NextResponse.json(
         { error: "No challenge available for today" },
         { status: 404 }
       );
     }
 
+    const { challenge } = active;
     const word = challenge.word as unknown as { word: string };
 
     const attempts = await Attempt.find({
@@ -42,15 +44,15 @@ export async function GET() {
       .select("guess result attemptNumber")
       .sort({ attemptNumber: 1 });
 
-    const finished =
-      attempts.some((a) => a.result.every((r: string) => r === "correct")) ||
-      attempts.length >= 6;
+    const answer = active.finished ? word.word : undefined;
 
     return NextResponse.json({
       challengeId: challenge._id,
+      round: active.round,
+      totalRounds: active.totalRounds,
       wordLength: word.word.length,
-      answer: finished ? word.word : undefined,
-      maxAttempts: 6,
+      answer,
+      maxAttempts: MAX_ATTEMPTS,
       hintsEnabled: challenge.hintsEnabled,
       hint1: challenge.hintsEnabled ? challenge.hint1 : undefined,
       hint2: challenge.hintsEnabled ? challenge.hint2 : undefined,
@@ -59,6 +61,8 @@ export async function GET() {
       dayNumber: Math.floor(
         (today.getTime() - new Date("2024-01-01").getTime()) / (1000 * 60 * 60 * 24)
       ),
+      finished: active.finished,
+      nextRoundAvailable: active.nextRoundAvailable,
       attempts: attempts.map((a) => ({
         guess: a.guess,
         result: a.result,

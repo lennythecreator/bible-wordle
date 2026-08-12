@@ -10,9 +10,13 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface Challenge {
   challengeId: string;
+  round: number;
+  totalRounds: number;
   wordLength: number;
   answer?: string;
   maxAttempts?: number;
+  finished: boolean;
+  nextRoundAvailable: boolean;
   hintsEnabled: boolean;
   hint1?: string;
   hint2?: string;
@@ -29,9 +33,13 @@ interface Guess {
 
 interface ChallengeResponse {
   challengeId: string;
+  round: number;
+  totalRounds: number;
   wordLength: number;
   answer?: string;
   maxAttempts: number;
+  finished: boolean;
+  nextRoundAvailable: boolean;
   hintsEnabled: boolean;
   hint1?: string;
   hint2?: string;
@@ -55,6 +63,9 @@ interface GuessResponse {
   isCorrect: boolean;
   attemptsUsed: number;
   maxAttempts: number;
+  round: number;
+  totalRounds: number;
+  nextRoundAvailable: boolean;
   answer?: string;
 }
 
@@ -83,6 +94,10 @@ function isChallengeResponse(value: unknown): value is ChallengeResponse {
 
   return (
     typeof value.challengeId === "string" &&
+    typeof value.round === "number" &&
+    typeof value.totalRounds === "number" &&
+    typeof value.finished === "boolean" &&
+    typeof value.nextRoundAvailable === "boolean" &&
     typeof value.wordLength === "number" &&
     typeof value.maxAttempts === "number" &&
     typeof value.hintsEnabled === "boolean" &&
@@ -114,6 +129,9 @@ function isGuessResponse(value: unknown): value is GuessResponse {
     typeof value.isCorrect === "boolean" &&
     typeof value.attemptsUsed === "number" &&
     typeof value.maxAttempts === "number" &&
+    typeof value.round === "number" &&
+    typeof value.totalRounds === "number" &&
+    typeof value.nextRoundAvailable === "boolean" &&
     (value.answer === undefined || typeof value.answer === "string") &&
     typeof value.attempt.id === "string" &&
     typeof value.attempt.guess === "string" &&
@@ -137,6 +155,7 @@ export default function PlayPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [nextRoundAvailable, setNextRoundAvailable] = useState(false);
   const [letterStatuses, setLetterStatuses] = useState<
     Record<string, GuessResult>
   >({});
@@ -166,7 +185,7 @@ export default function PlayPage() {
   }, []);
 
   const fetchChallenge = useCallback(
-    async (showLoading = false) => {
+    async (showLoading = false, allowAdvance = false) => {
       if (showLoading) {
         setLoading(true);
       }
@@ -184,6 +203,17 @@ export default function PlayPage() {
             return;
           }
 
+          setNextRoundAvailable(data.nextRoundAvailable);
+
+          const sameRound =
+            challenge && challenge.challengeId === data.challengeId;
+
+          if (!sameRound && !allowAdvance) {
+            setChallenge(data);
+            if (data.answer) setAnswer(data.answer);
+            return;
+          }
+
           setChallenge(data);
           if (data.answer) setAnswer(data.answer);
 
@@ -194,15 +224,31 @@ export default function PlayPage() {
             })
           );
 
-          if (savedAttempts.length > 0) {
+          if (!sameRound) {
+            setGuesses(savedAttempts);
+            setCurrentGuess("");
+            setWon(false);
+            setGameOver(false);
+            updateLetterStatuses(savedAttempts);
+          } else if (savedAttempts.length > 0) {
             setGuesses(savedAttempts);
             updateLetterStatuses(savedAttempts);
+          }
 
+          if (data.finished && !sameRound) {
+            const solved = savedAttempts.some((g) =>
+              g.result.every((r) => r === "correct")
+            );
+            if (solved) {
+              setWon(true);
+            }
+            setGameOver(true);
+          } else if (data.finished && sameRound) {
             const solved = savedAttempts.some((g) =>
               g.result.every((r) => r === "correct")
             );
             setWon(solved);
-            setGameOver(solved || savedAttempts.length >= 6);
+            setGameOver(true);
           }
         } else {
           const errorData: unknown = await response.json().catch(() => null);
@@ -220,8 +266,13 @@ export default function PlayPage() {
         }
       }
     },
-    [updateLetterStatuses]
+    [challenge, updateLetterStatuses]
   );
+
+  const handleNextRound = () => {
+    setLoading(true);
+    fetchChallenge(false, true);
+  };
 
   useEffect(() => {
     return () => {
@@ -321,6 +372,7 @@ export default function PlayPage() {
       const newGuesses = [...guesses, newGuess];
       setGuesses(newGuesses);
       setCurrentGuess("");
+      setNextRoundAvailable(data.nextRoundAvailable);
       setSubmitting(false);
       if (data.answer) setAnswer(data.answer);
       setIsRevealing(true);
@@ -377,6 +429,13 @@ export default function PlayPage() {
       <GameHeader attempts={guesses.length} maxAttempts={6} />
 
       <main className="grow flex flex-col items-center justify-start px-3 py-3 max-w-2xl mx-auto w-full md:justify-center md:py-6">
+        {/* Round Badge */}
+        {challenge.totalRounds > 1 && (
+          <p className="font-label text-primary uppercase tracking-wider text-xs mb-2">
+            Round {challenge.round} of {challenge.totalRounds}
+          </p>
+        )}
+
         {/* Game Board */}
         <div className="w-full mb-4 md:mb-10">
           <GameBoard
@@ -452,6 +511,19 @@ export default function PlayPage() {
                 </p>
               </>
             )}
+
+            {nextRoundAvailable ? (
+              <button
+                onClick={handleNextRound}
+                className="mt-4 px-6 py-3 rounded-xl bg-primary text-on-primary font-bold transition-transform active:translate-y-0.5"
+              >
+                Next Round
+              </button>
+            ) : challenge.totalRounds > 1 ? (
+              <p className="font-body text-on-surface-variant text-sm md:text-base mt-3">
+                No more rounds for today — check back later
+              </p>
+            ) : null}
           </div>
         )}
 

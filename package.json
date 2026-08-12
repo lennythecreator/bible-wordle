@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx scripts/create-admin.ts",
-    "fix-dates": "npx tsx scripts/fix-challenge-dates.ts"
+    "fix-dates": "npx tsx scripts/fix-challenge-dates.ts",
+    "migrate-rounds": "npx tsx scripts/migrate-rounds.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

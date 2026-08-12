@@ -4,6 +4,7 @@ import { IBibleWord } from "./BibleWord";
 export interface IDailyChallenge extends Document {
   word: IBibleWord["_id"];
   date: Date;
+  round: number;
   hintsEnabled: boolean;
   hint1?: string;
   hint2?: string;
@@ -24,7 +25,12 @@ const DailyChallengeSchema = new Schema<IDailyChallenge>(
     date: {
       type: Date,
       required: [true, "Date is required"],
-      unique: true,
+    },
+    round: {
+      type: Number,
+      required: [true, "Round is required"],
+      default: 1,
+      min: [1, "Round must be at least 1"],
     },
     hintsEnabled: {
       type: Boolean,
@@ -56,6 +62,8 @@ const DailyChallengeSchema = new Schema<IDailyChallenge>(
     timestamps: true,
   }
 );
+
+DailyChallengeSchema.index({ date: 1, round: 1 }, { unique: true });
 
 export default mongoose.models.DailyChallenge ||
   mongoose.model<IDailyChallenge>("DailyChallenge", DailyChallengeSchema);
