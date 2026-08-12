@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type mongoose from "mongoose";
+import mongoose from "mongoose";
 import { getCurrentUser } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { utcDateFromKey } from "@/lib/dates";
@@ -184,6 +184,57 @@ export async function POST(req: Request) {
     );
   } catch (error) {
     console.error("Create challenge error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const challengeId = searchParams.get("challengeId");
+
+    if (!challengeId) {
+      return NextResponse.json(
+        { error: "Challenge ID is required" },
+        { status: 400 }
+      );
+    }
+
+    await connectToDatabase();
+
+    if (!mongoose.Types.ObjectId.isValid(challengeId)) {
+      return NextResponse.json(
+        { error: "Invalid challenge ID" },
+        { status: 400 }
+      );
+    }
+
+    const challenge = await DailyChallenge.findByIdAndDelete(challengeId);
+
+    if (!challenge) {
+      return NextResponse.json(
+        { error: "Challenge not found" },
+        { status: 404 }
+      );
+    }
+
+    await Attempt.deleteMany({ challenge: challenge._id });
+
+    return NextResponse.json({
+      message: "Round deleted",
+      deletedRound: challenge.round,
+    });
+  } catch (error) {
+    console.error("Delete challenge error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

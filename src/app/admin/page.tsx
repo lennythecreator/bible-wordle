@@ -287,6 +287,45 @@ export default function AdminPage() {
     setMessage("");
   };
 
+  const handleDeleteRound = async (round: TodayRound) => {
+    if (round.attemptCount > 0) {
+      const ok = window.confirm(
+        `Round ${round.round} (${round.word?.word}) already has ${round.attemptCount} attempt(s) by players. Delete it anyway?`
+      );
+      if (!ok) {
+        return;
+      }
+    } else if (
+      !window.confirm(
+        `Delete Round ${round.round} (${round.word?.word})? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/admin/challenge?challengeId=${round._id}`,
+        { method: "DELETE" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Failed to delete round");
+      } else {
+        setMessage(`Round ${round.round} deleted`);
+        if (editingRound?.round === round.round) {
+          setEditingRound(null);
+          setSelectedWord("");
+        }
+        await fetchChallenges();
+      }
+    } catch {
+      setMessage("Failed to delete round");
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="page-shell">
@@ -619,6 +658,15 @@ export default function AdminPage() {
                           >
                             <span className="material-symbols-outlined text-lg">
                               edit
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRound(round)}
+                            className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container rounded-xl transition-colors"
+                            aria-label={`Delete round ${round.round}`}
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              delete
                             </span>
                           </button>
                         </div>
