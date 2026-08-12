@@ -28,7 +28,8 @@ interface AdminUser {
 interface TodayRound {
   _id: string;
   round: number;
-  word?: { word: string; category: string };
+  date: string;
+  word?: { _id: string; word: string; category: string };
   attemptCount: number;
   solvedCount: number;
 }
@@ -53,6 +54,10 @@ export default function AdminPage() {
     date: string;
   } | null>(null);
   const [todayRounds, setTodayRounds] = useState<TodayRound[]>([]);
+  const [editingRound, setEditingRound] = useState<{
+    date: string;
+    round: number;
+  } | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [pendingOverwrite, setPendingOverwrite] = useState<{
     wordId: string;
@@ -150,7 +155,8 @@ export default function AdminPage() {
   const handleCreateChallenge = async (
     overwrite = false,
     publishToday = false,
-    dateStr?: string
+    dateStr?: string,
+    round?: number
   ) => {
     if (!selectedWord) {
       setMessage("Please select a Bible word");
@@ -164,6 +170,7 @@ export default function AdminPage() {
     const payload = {
       wordId: selectedWord,
       date: resolvedDate,
+      round,
       hintsEnabled: true,
       hint1: `Category: ${selectedWordData?.category || "Unknown"}`,
       hint2: selectedWordData?.author
@@ -194,9 +201,14 @@ export default function AdminPage() {
       if (!response.ok) {
         setMessage(data.error || "Failed to create challenge");
       } else {
-        setMessage("Challenge published successfully!");
+        setMessage(
+          editingRound
+            ? `Round ${editingRound.round} updated successfully!`
+            : "Challenge published successfully!"
+        );
         setSelectedWord("");
         setPendingOverwrite(null);
+        setEditingRound(null);
         await fetchChallenges();
       }
     } catch {
@@ -249,7 +261,11 @@ export default function AdminPage() {
 
   const handlePublishLive = async () => {
     setPublishing(true);
-    await handleCreateChallenge(false, true);
+    if (editingRound) {
+      await handleCreateChallenge(true, true, editingRound.date, editingRound.round);
+    } else {
+      await handleCreateChallenge(false, true);
+    }
     setPublishing(false);
   };
 
@@ -257,6 +273,18 @@ export default function AdminPage() {
     setPublishing(true);
     await handleCreateChallenge(false, false);
     setPublishing(false);
+  };
+
+  const handleEditRound = (round: TodayRound) => {
+    setEditingRound({ date: toDateKey(new Date(round.date)), round: round.round });
+    setSelectedWord(round.word?._id ?? "");
+    setMessage(`Editing Round ${round.round} — pick a new word and save`);
+  };
+
+  const cancelEditRound = () => {
+    setEditingRound(null);
+    setSelectedWord("");
+    setMessage("");
   };
 
   if (authLoading || loading) {
@@ -558,25 +586,54 @@ export default function AdminPage() {
                 </p>
               ) : (
                 <div className="flex flex-col gap-2 mt-2">
-                  {todayRounds.map((round) => (
-                    <div
-                      key={round._id}
-                      className="flex items-center justify-between rounded-xl bg-surface-container px-3 py-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-primary/15 text-primary text-label font-bold px-2 py-0.5">
-                          R{round.round}
-                        </span>
-                        <span className="text-body font-bold text-on-surface">
-                          {round.word?.word ?? "?"}
-                        </span>
+                  {todayRounds.map((round) => {
+                    const isEditing =
+                      editingRound?.round === round.round &&
+                      editingRound?.date ===
+                        toDateKey(new Date(round.date));
+                    return (
+                      <div
+                        key={round._id}
+                        className={`flex items-center justify-between rounded-xl px-3 py-2 ${
+                          isEditing
+                            ? "bg-primary/15 border-2 border-primary"
+                            : "bg-surface-container"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-primary/15 text-primary text-label font-bold px-2 py-0.5">
+                            R{round.round}
+                          </span>
+                          <span className="text-body font-bold text-on-surface">
+                            {round.word?.word ?? "?"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-label text-on-surface-variant">
+                            {round.solvedCount}/{round.attemptCount} solved
+                          </span>
+                          <button
+                            onClick={() => handleEditRound(round)}
+                            className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors"
+                            aria-label={`Edit round ${round.round}`}
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              edit
+                            </span>
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-label text-on-surface-variant">
-                        {round.solvedCount}/{round.attemptCount} solved
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+              )}
+              {editingRound && (
+                <button
+                  onClick={cancelEditRound}
+                  className="mt-3 text-label text-on-surface-variant underline uppercase hover:text-error"
+                >
+                  Cancel edit
+                </button>
               )}
             </section>
 
@@ -651,11 +708,15 @@ export default function AdminPage() {
                 disabled={publishing || !selectedWord}
                 className="btn-chunky btn-primary"
               >
-                {publishing ? "PUBLISHING..." : "SET CHALLENGE FOR TODAY"}
+                {publishing
+                  ? "PUBLISHING..."
+                  : editingRound
+                    ? `SAVE ROUND ${editingRound.round}`
+                    : "SET CHALLENGE FOR TODAY"}
               </button>
               <button
                 onClick={handlePublishTomorrow}
-                disabled={publishing || !selectedWord}
+                disabled={publishing || !selectedWord || editingRound !== null}
                 className="btn-chunky btn-secondary"
               >
                 {publishing ? "PUBLISHING..." : "SET CHALLENGE FOR TOMORROW"}

@@ -162,6 +162,7 @@ export default function PlayPage() {
 
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const challengeIdRef = useRef<string | null>(null);
 
   const updateLetterStatuses = useCallback((guesses: Guess[]) => {
     const statuses: Record<string, GuessResult> = {};
@@ -205,15 +206,15 @@ export default function PlayPage() {
 
           setNextRoundAvailable(data.nextRoundAvailable);
 
-          const sameRound =
-            challenge && challenge.challengeId === data.challengeId;
+          const sameRound = challengeIdRef.current === data.challengeId;
+          const shouldRender =
+            challengeIdRef.current === null || sameRound || allowAdvance;
 
-          if (!sameRound && !allowAdvance) {
-            setChallenge(data);
-            if (data.answer) setAnswer(data.answer);
+          if (!shouldRender) {
             return;
           }
 
+          challengeIdRef.current = data.challengeId;
           setChallenge(data);
           if (data.answer) setAnswer(data.answer);
 
@@ -235,15 +236,7 @@ export default function PlayPage() {
             updateLetterStatuses(savedAttempts);
           }
 
-          if (data.finished && !sameRound) {
-            const solved = savedAttempts.some((g) =>
-              g.result.every((r) => r === "correct")
-            );
-            if (solved) {
-              setWon(true);
-            }
-            setGameOver(true);
-          } else if (data.finished && sameRound) {
+          if (data.finished) {
             const solved = savedAttempts.some((g) =>
               g.result.every((r) => r === "correct")
             );
@@ -266,11 +259,10 @@ export default function PlayPage() {
         }
       }
     },
-    [challenge, updateLetterStatuses]
+    [updateLetterStatuses]
   );
 
   const handleNextRound = () => {
-    setLoading(true);
     fetchChallenge(false, true);
   };
 
