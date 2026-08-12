@@ -34,6 +34,14 @@ interface TodayRound {
   solvedCount: number;
 }
 
+interface RoundPlayer {
+  user: { id: string; name: string; username?: string; email: string };
+  solved: boolean;
+  solvedAt?: string | null;
+  attemptsUsed: number;
+  guesses: { guess: string; result: string[]; attemptNumber: number }[];
+}
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -66,6 +74,9 @@ export default function AdminPage() {
   const [newAuthor, setNewAuthor] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [addingWord, setAddingWord] = useState(false);
+  const [viewingRound, setViewingRound] = useState<TodayRound | null>(null);
+  const [roundPlayers, setRoundPlayers] = useState<RoundPlayer[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [pendingOverwrite, setPendingOverwrite] = useState<{
     wordId: string;
@@ -344,6 +355,32 @@ export default function AdminPage() {
       setMessage("Failed to add word");
     } finally {
       setAddingWord(false);
+    }
+  };
+
+  const handleViewRound = async (round: TodayRound) => {
+    setViewingRound(round);
+    setRoundPlayers([]);
+    setLoadingPlayers(true);
+
+    try {
+      const response = await fetch(
+        `/api/admin/round-attempts?challengeId=${round._id}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Failed to load guesses");
+        setViewingRound(null);
+      } else {
+        setRoundPlayers(data.players || []);
+      }
+    } catch {
+      setMessage("Failed to load guesses");
+      setViewingRound(null);
+    } finally {
+      setLoadingPlayers(false);
     }
   };
 
@@ -794,6 +831,15 @@ export default function AdminPage() {
                             {round.solvedCount}/{round.attemptCount} solved
                           </span>
                           <button
+                            onClick={() => handleViewRound(round)}
+                            className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors"
+                            aria-label={`View guesses for round ${round.round}`}
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              visibility
+                            </span>
+                          </button>
+                          <button
                             onClick={() => handleEditRound(round)}
                             className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-colors"
                             aria-label={`Edit round ${round.round}`}
@@ -943,6 +989,83 @@ export default function AdminPage() {
           </div>
         </div>
       </main>
+
+      {/* Round Guesses Modal */}
+      {viewingRound && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 flex items-start justify-center p-4">
+          <div className="bg-surface w-full max-w-2xl rounded-2xl p-5 my-8 card-elevated">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-headline-lg-mobile text-on-surface">
+                Round {viewingRound.round} — {viewingRound.word?.word ?? "?"} Guesses
+              </h3>
+              <button
+                onClick={() => setViewingRound(null)}
+                className="p-2 text-on-surface-variant hover:text-on-surface rounded-xl transition-colors"
+                aria-label="Close"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {loadingPlayers ? (
+              <p className="text-on-surface-variant font-body">Loading guesses...</p>
+            ) : roundPlayers.length === 0 ? (
+              <p className="text-on-surface-variant font-body">
+                No one has solved this round yet.
+              </p>
+            ) : (
+              <div className="max-h-[70vh] overflow-y-auto flex flex-col gap-3">
+                {roundPlayers.map((player, index) => (
+                  <div
+                    key={player.user.id}
+                    className="rounded-xl bg-surface-container px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-primary/15 text-primary text-label font-bold px-2 py-0.5">
+                          #{index + 1}
+                        </span>
+                        <span className="font-body font-bold text-on-surface">
+                          {player.user.username || player.user.name}
+                        </span>
+                      </div>
+                      <span className="text-label text-on-surface-variant">
+                        {player.attemptsUsed} attempt{player.attemptsUsed === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {player.guesses.map((g) => (
+                        <div
+                          key={g.attemptNumber}
+                          className="flex gap-1"
+                          style={{
+                            gridTemplateColumns: `repeat(${g.guess.length}, 1fr)`,
+                          }}
+                        >
+                          {g.guess.split("").map((letter, i) => (
+                            <div
+                              key={i}
+                              className={`flex-1 h-7 rounded-md flex items-center justify-center text-xs font-bold ${
+                                g.result[i] === "correct"
+                                  ? "tile-correct"
+                                  : g.result[i] === "wrong"
+                                    ? "tile-wrong"
+                                    : "tile-missing"
+                              }`}
+                            >
+                              {letter}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
