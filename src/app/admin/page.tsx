@@ -58,6 +58,14 @@ export default function AdminPage() {
     date: string;
     round: number;
   } | null>(null);
+  const [newWord, setNewWord] = useState("");
+  const [newTestament, setNewTestament] = useState<
+    "Old Testament" | "New Testament"
+  >("Old Testament");
+  const [newCategory, setNewCategory] = useState("History");
+  const [newAuthor, setNewAuthor] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [addingWord, setAddingWord] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [pendingOverwrite, setPendingOverwrite] = useState<{
     wordId: string;
@@ -287,6 +295,58 @@ export default function AdminPage() {
     setMessage("");
   };
 
+  const handleAddWord = async () => {
+    const trimmedWord = newWord.trim();
+    const trimmedDescription = newDescription.trim();
+
+    if (trimmedWord.length < 4) {
+      setMessage("Word must be at least 4 letters");
+      return;
+    }
+    if (!trimmedDescription) {
+      setMessage("A short description is required");
+      return;
+    }
+
+    setAddingWord(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/words", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          word: trimmedWord,
+          description: trimmedDescription,
+          testament: newTestament,
+          category: newCategory,
+          author: newAuthor.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Failed to add word");
+      } else {
+        setMessage("Word added to the bank!");
+        setNewWord("");
+        setNewDescription("");
+        setNewAuthor("");
+
+        const wordsRes = await fetch("/api/admin/words");
+        if (wordsRes.ok) {
+          const wordsData = await wordsRes.json();
+          setWords(wordsData.words || []);
+        }
+      }
+    } catch {
+      setMessage("Failed to add word");
+    } finally {
+      setAddingWord(false);
+    }
+  };
+
   const handleDeleteRound = async (round: TodayRound) => {
     if (round.attemptCount > 0) {
       const ok = window.confirm(
@@ -476,6 +536,88 @@ export default function AdminPage() {
                     </p>
                   </div>
                 )}
+              </div>
+            </section>
+
+            {/* Add Word to Bank */}
+            <section className="card">
+              <div className="section-header">
+                <span className="material-symbols-outlined text-primary text-3xl">
+                  library_add
+                </span>
+                <h3 className="text-on-surface text-headline-lg-mobile md:text-headline-lg font-display">
+                  Add Word to Bank
+                </h3>
+              </div>
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="field-label">WORD</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. NEHEMIAH / 2PETER"
+                      value={newWord}
+                      onChange={(e) => setNewWord(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">CATEGORY</label>
+                    <select
+                      className="input"
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                    >
+                      <option>Law</option>
+                      <option>History</option>
+                      <option>Wisdom</option>
+                      <option>Prophets</option>
+                      <option>Gospels</option>
+                      <option>Epistles</option>
+                      <option>Apocalyptic</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">TESTAMENT</label>
+                    <select
+                      className="input"
+                      value={newTestament}
+                      onChange={(e) =>
+                        setNewTestament(
+                          e.target.value as "Old Testament" | "New Testament"
+                        )
+                      }
+                    >
+                      <option>Old Testament</option>
+                      <option>New Testament</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">AUTHOR (OPTIONAL)</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. Paul"
+                      value={newAuthor}
+                      onChange={(e) => setNewAuthor(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="field-label">SHORT DESCRIPTION</label>
+                  <textarea
+                    className="textarea"
+                    rows={2}
+                    placeholder="One sentence about this book..."
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                  />
+                </div>
+                <button
+                  onClick={handleAddWord}
+                  disabled={addingWord}
+                  className="btn-chunky btn-secondary self-start"
+                >
+                  {addingWord ? "ADDING..." : "ADD WORD"}
+                </button>
               </div>
             </section>
 
