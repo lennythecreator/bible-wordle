@@ -169,7 +169,7 @@ export async function POST(req: Request) {
 
     if (!isValidWord(guess)) {
       return NextResponse.json(
-        { error: "Invalid word. Must be at least 4 letters and contain only alphabetic characters." },
+        { error: "Invalid guess. Use only letters and numbers, at least 4 characters." },
         { status: 400 }
       );
     }

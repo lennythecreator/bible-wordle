@@ -49,7 +49,7 @@ export function evaluateGuess(guess: string, answer: string): EvaluateGuessRespo
 }
 
 export function isValidWord(word: string): boolean {
-  return word.length >= 4 && /^[A-Z]+$/i.test(word);
+  return word.length >= 4 && /^[A-Z0-9]+$/i.test(word);
 }
 
 export function getWordLength(word: string): number {
